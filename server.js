@@ -2,15 +2,17 @@
  * This server.js file is the primary file of the 
  * application. It is used to control the project.
  *******************************************/
+
 /* ***********************
  * Require Statements
  *************************/
 const express = require("express")
 const expressLayouts = require("express-ejs-layouts")
-const env = require("dotenv").config()
+require("dotenv").config()
 const app = express()
-const static = require("./routes/static")
-const path = require("path") // Needed for views folder path
+const staticRoutes = require("./routes/static")
+const path = require("path")
+const inventoryRoute = require("./routes/inventoryRoute")
 
 // Utilities module (getNav + handleErrors)
 const utilities = require("./utilities")
@@ -23,7 +25,7 @@ const baseController = require("./controllers/baseController")
  *************************/
 app.set("view engine", "ejs")
 app.use(expressLayouts)
-app.set("layout", "./layouts/layout") // points to views/layouts/layout.ejs
+app.set("layout", "./layouts/layout")
 app.set("views", path.join(__dirname, "views"))
 
 // Serve static files from public folder
@@ -32,32 +34,35 @@ app.use(express.static(path.join(__dirname, "public")))
 /* ***********************
  * Routes
  *************************/
-app.use(static)
+app.use(staticRoutes)
+// Inventory routes
+app.use("/inv", inventoryRoute)
 
-// Index route wrapped with handleErrors HOF
+
+// Home / Index route (wrapped with error middleware)
 app.get("/", utilities.handleErrors(baseController.buildHome))
 
 /* ***********************
- * File Not Found Route - must be last route
+ * File Not Found Route
+ * MUST be after all other routes
  *************************/
-app.use(async (req, res, next) => {
+app.use((req, res, next) => {
   next({ status: 404, message: "Sorry, we appear to have lost that page." })
 })
 
 /* ***********************
  * Express Error Handler
- * Place after all other middleware
  *************************/
 app.use(async (err, req, res, next) => {
-  let nav = await utilities.getNav()
-  console.error(`Error at: "${req.originalUrl}": ${err.message}`)
+  const nav = await utilities.getNav()
+  console.error(`Error at "${req.originalUrl}": ${err.message}`)
 
-  // Generic message for non-404 errors
-  let message = (err.status === 404) 
-    ? err.message 
-    : 'Oh no! There was a crash. Maybe try a different route?'
+  let message =
+    err.status === 404
+      ? err.message
+      : "Oh no! There was a crash. Maybe try a different route?"
 
-  res.render("errors/error", {
+  res.status(err.status || 500).render("errors/error", {
     title: err.status || "Server Error",
     message,
     nav
@@ -66,13 +71,12 @@ app.use(async (err, req, res, next) => {
 
 /* ***********************
  * Local Server Information
- * Values from .env (environment) file
  *************************/
 const port = process.env.PORT || 5500
 const host = process.env.HOST || "localhost"
 
 /* ***********************
- * Log statement to confirm server operation
+ * Server Start
  *************************/
 app.listen(port, () => {
   console.log(`app listening on ${host}:${port}`)
