@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title %></title>
+</head>
+<body>
+  <h1><%= title %></h1>
+  <p><%= message %></p>
+
+  <nav>
+    <ul>
+      <% nav.forEach(item => { %>
+        <li><a href="<%= item.link %>"><%= item.name %></a></li>
+      <% }) %>
+    </ul>
+  </nav>
+</body>
+</html>

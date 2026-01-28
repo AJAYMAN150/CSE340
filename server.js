@@ -12,6 +12,12 @@ const app = express()
 const static = require("./routes/static")
 const path = require("path") // Needed for views folder path
 
+// Utilities module (getNav + handleErrors)
+const utilities = require("./utilities")
+
+// Base controller (home page logic)
+const baseController = require("./controllers/baseController")
+
 /* ***********************
  * View Engine Setup (EJS)
  *************************/
@@ -28,15 +34,34 @@ app.use(express.static(path.join(__dirname, "public")))
  *************************/
 app.use(static)
 
-// Index route
-app.get("/", (req, res) => {
-  res.render("index", { title: "Home" }) // Passes "Home" to the head partial
-})
+// Index route wrapped with handleErrors HOF
+app.get("/", utilities.handleErrors(baseController.buildHome))
+
 /* ***********************
- * Optional: Minimal index route for testing
+ * File Not Found Route - must be last route
  *************************/
-app.get("/", (req, res) => {
-  res.render("index", { title: "Home Page" })
+app.use(async (req, res, next) => {
+  next({ status: 404, message: "Sorry, we appear to have lost that page." })
+})
+
+/* ***********************
+ * Express Error Handler
+ * Place after all other middleware
+ *************************/
+app.use(async (err, req, res, next) => {
+  let nav = await utilities.getNav()
+  console.error(`Error at: "${req.originalUrl}": ${err.message}`)
+
+  // Generic message for non-404 errors
+  let message = (err.status === 404) 
+    ? err.message 
+    : 'Oh no! There was a crash. Maybe try a different route?'
+
+  res.render("errors/error", {
+    title: err.status || "Server Error",
+    message,
+    nav
+  })
 })
 
 /* ***********************
