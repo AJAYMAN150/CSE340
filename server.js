@@ -10,15 +10,42 @@ const express = require("express")
 const expressLayouts = require("express-ejs-layouts")
 require("dotenv").config()
 const app = express()
-const staticRoutes = require("./routes/static")
 const path = require("path")
+
+const staticRoutes = require("./routes/static")
 const inventoryRoute = require("./routes/inventoryRoute")
+
+const session = require("express-session")
+const pool = require("./database/")
 
 // Utilities module (getNav + handleErrors)
 const utilities = require("./utilities")
 
 // Base controller (home page logic)
 const baseController = require("./controllers/baseController")
+
+/* ***********************
+ * Middleware
+ *************************/
+
+// Session middleware
+app.use(session({
+  store: new (require("connect-pg-simple")(session))({
+    createTableIfMissing: true,
+    pool,
+  }),
+  secret: process.env.SESSION_SECRET,
+  resave: true,
+  saveUninitialized: true,
+  name: "sessionId",
+}))
+
+// Flash & Messages middleware  ✅ MOVED HERE
+app.use(require("connect-flash")())
+app.use(function (req, res, next) {
+  res.locals.messages = require("express-messages")(req, res)
+  next()
+})
 
 /* ***********************
  * View Engine Setup (EJS)
@@ -35,11 +62,9 @@ app.use(express.static(path.join(__dirname, "public")))
  * Routes
  *************************/
 app.use(staticRoutes)
-// Inventory routes
 app.use("/inv", inventoryRoute)
 
-
-// Home / Index route (wrapped with error middleware)
+// Home / Index route
 app.get("/", utilities.handleErrors(baseController.buildHome))
 
 /* ***********************
@@ -57,7 +82,7 @@ app.use(async (err, req, res, next) => {
   const nav = await utilities.getNav()
   console.error(`Error at "${req.originalUrl}": ${err.message}`)
 
-  let message =
+  const message =
     err.status === 404
       ? err.message
       : "Oh no! There was a crash. Maybe try a different route?"
@@ -65,7 +90,7 @@ app.use(async (err, req, res, next) => {
   res.status(err.status || 500).render("errors/error", {
     title: err.status || "Server Error",
     message,
-    nav
+    nav,
   })
 })
 
